@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Symptom Checker - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">[nav items]</aside>
+        <div class="main-content" style="max-width:800px;margin:0 auto;">
+            <div class="top-bar"><h1>AI Symptom Checker</h1></div>
+
+            <div class="card" style="text-align:center;padding:40px;">
+                <div style="font-size:64px;color:var(--accent);margin-bottom:16px;">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h2 style="margin-bottom:8px;">Symptom Checker</h2>
+                <p style="color:var(--text-light);margin-bottom:24px;">
+                    Describe your symptoms below and our AI will suggest possible conditions and the relevant department.
+                </p>
+
+                <div style="background:var(--bg);border-radius:12px;padding:24px;margin-bottom:20px;">
+                    <div class="form-group" style="text-align:left;">
+                        <label for="symptomsInput">Enter your symptoms (comma separated):</label>
+                        <textarea id="symptomsInput" rows="3" placeholder="e.g., fever, cough, headache, chest pain" style="width:100%;font-size:16px;"></textarea>
+                    </div>
+                    <button class="btn btn-primary btn-block" onclick="checkSymptoms()" id="checkBtn">
+                        <i class="fas fa-search"></i> Check Symptoms
+                    </button>
+                </div>
+
+                <div id="resultContainer" style="display:none;">
+                    <div style="background:var(--card-bg);border-radius:12px;padding:24px;border:2px solid var(--accent);">
+                        <h3 style="margin-bottom:16px;color:var(--accent);">
+                            <i class="fas fa-stethoscope"></i> Analysis Result
+                        </h3>
+                        <div id="resultContent"></div>
+                        <div style="margin-top:16px;padding:12px;background:#fef5e7;border-radius:8px;font-size:13px;color:#856404;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span id="disclaimer">This is not a medical diagnosis. Please consult a healthcare professional.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        async function checkSymptoms() {
+            const input = document.getElementById('symptomsInput').value.trim();
+            if (!input) {
+                showToast('Please enter your symptoms', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('checkBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Analyzing...';
+
+            try {
+                // Using the POST endpoint for symptom checker
+                const response = await fetch('http://localhost:5000/api/symptom-checker', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify({ symptoms: input })
+                });
+                const data = await response.json();
+
+                document.getElementById('resultContainer').style.display = 'block';
+                const content = document.getElementById('resultContent');
+                content.innerHTML = `
+                    <div style="display:grid;gap:12px;text-align:left;">
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                            <strong>Matched Symptoms:</strong>
+                            <span>${(data.matched_symptoms || []).map(s => `<span class="badge badge-info">${s}</span>`).join(' ') || 'None identified'}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                            <strong>Possible Conditions:</strong>
+                            <span>${(data.possible_conditions || []).join(', ')}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+                            <strong>Suggested Department:</strong>
+                            <span class="badge badge-success">${data.department || 'General Medicine'}</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;padding:8px 0;">
+                            <strong>Urgency:</strong>
+                            <span class="badge ${data.urgency === 'emergency' ? 'badge-danger' : data.urgency === 'urgent' ? 'badge-warning' : 'badge-info'}">${(data.urgency || 'normal').toUpperCase()}</span>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('disclaimer').textContent = data.disclaimer || 'This is not a medical diagnosis. Please consult a healthcare professional.';
+            } catch (err) {
+                showToast('Failed to check symptoms. Please try again.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-search"></i> Check Symptoms';
+            }
+        }
+    </script>
+</body>
+</html>

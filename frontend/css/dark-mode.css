@@ -1,0 +1,49 @@
+body.dark-mode {
+    --primary: #1a1a2e;
+    --primary-light: #16213e;
+    --accent: #0f3460;
+    --accent-hover: #1a5276;
+    --bg: #0d0d0d;
+    --card-bg: #1a1a2e;
+    --text: #e0e0e0;
+    --text-light: #a0a0a0;
+    --border: #2d2d44;
+}
+
+body.dark-mode .login-page {
+    background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 100%);
+}
+
+body.dark-mode input,
+body.dark-mode select,
+body.dark-mode textarea {
+    background: #16213e;
+    color: var(--text);
+    border-color: #2d2d44;
+}
+
+body.dark-mode table th {
+    background: #16213e;
+    color: var(--text-light);
+}
+
+body.dark-mode table td {
+    border-color: #2d2d44;
+}
+
+body.dark-mode table tr:hover {
+    background: #16213e;
+}
+
+body.dark-mode .tab {
+    color: var(--text-light);
+}
+
+body.dark-mode .tab.active {
+    background: var(--primary-light);
+}
+
+body.dark-mode .message.bot {
+    background: var(--primary-light);
+    color: var(--text);
+}

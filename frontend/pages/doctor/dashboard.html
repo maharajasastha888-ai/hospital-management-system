@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2><i class="fas fa-hospital"></i> HMS</h2></div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active"><i class="fas fa-tachometer-alt"></i> Dashboard</button>
+                <button class="nav-item"><i class="fas fa-calendar-check"></i> My Appointments</button>
+                <button class="nav-item"><i class="fas fa-users"></i> My Patients</button>
+                <button class="nav-item"><i class="fas fa-flask"></i> Lab Orders</button>
+                <hr style="border-color:rgba(255,255,255,0.1);margin:12px 20px;">
+                <button class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </nav>
+        </aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1>Doctor Dashboard</h1>
+                <div class="user-info">
+                    <button class="dark-mode-toggle" onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+                    <span id="userName"></span>
+                    <div class="user-avatar" id="userAvatar">D</div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-calendar-check"></i></div><div class="stat-info"><h3 id="todayAppts">0</h3><p>Today's Appointments</p></div></div>
+                <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="completedAppts">0</h3><p>Completed</p></div></div>
+                <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-clock"></i></div><div class="stat-info"><h3 id="pendingAppts">0</h3><p>Pending</p></div></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h3>Today's Appointments</h3></div>
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>Patient</th><th>Time</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead>
+                        <tbody id="apptsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="toast-container" class="toast-container"></div>
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        async function loadDashboard() {
+            try {
+                const user = await checkAuth();
+                if (!user) return;
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+
+                const today = new Date().toISOString().split('T')[0];
+                const data = await api.get(`/appointments?date=${today}`);
+                const tbody = document.getElementById('apptsTable');
+                tbody.innerHTML = '';
+                let completed = 0, pending = 0;
+                data.appointments.forEach(a => {
+                    if (a.status === 'completed') completed++;
+                    else if (a.status === 'scheduled') pending++;
+                    tbody.innerHTML += `<tr>
+                        <td>${escapeHtml(a.patient_name || 'N/A')}</td>
+                        <td>${escapeHtml(a.time_slot)}</td>
+                        <td>${escapeHtml(a.reason || '-')}</td>
+                        <td>${getStatusBadge(a.status)}</td>
+                        <td>${a.status === 'scheduled' ? `<button class="btn btn-sm btn-success" onclick="completeAppt(${a.id})"><i class="fas fa-check"></i> Complete</button>` : '-'}</td>
+                    </tr>`;
+                });
+                if (data.appointments.length === 0) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No appointments today</td></tr>';
+                document.getElementById('todayAppts').textContent = data.appointments.length;
+                document.getElementById('completedAppts').textContent = completed;
+                document.getElementById('pendingAppts').textContent = pending;
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function completeAppt(id) {
+            try { await api.put(`/appointments/${id}/complete`); showToast('Appointment completed', 'success'); loadDashboard(); }
+            catch (err) { showToast(err.message, 'error'); }
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>

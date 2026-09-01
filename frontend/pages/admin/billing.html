@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Billing - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">[nav items]</aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1>Billing Management</h1>
+                <div class="user-info">
+                    <button class="dark-mode-toggle" onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+                    <span id="userName"></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <button class="btn btn-primary" onclick="openCreateBillModal()"><i class="fas fa-file-invoice"></i> Create Bill</button>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Invoice #</th>
+                                <th>Patient</th>
+                                <th>Total</th>
+                                <th>Paid</th>
+                                <th>Due</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="billsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="billModal">
+        <div class="modal" style="max-width:700px;">
+            <div class="modal-header">
+                <h2>Create Bill</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="billForm">
+                    <div class="form-group"><label>Patient</label><select id="patientSelect" required></select></div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div class="form-group"><label>Consultation Fee</label><input type="number" id="consFee" step="0.01" value="0"></div>
+                        <div class="form-group"><label>Lab Fee</label><input type="number" id="labFee" step="0.01" value="0"></div>
+                        <div class="form-group"><label>Medicine Fee</label><input type="number" id="medFee" step="0.01" value="0"></div>
+                        <div class="form-group"><label>Other Fee</label><input type="number" id="otherFee" step="0.01" value="0"></div>
+                    </div>
+                    <div style="padding:12px;background:var(--bg);border-radius:8px;margin-top:8px;">
+                        <strong>Total: $<span id="totalDisplay">0.00</span></strong>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="createBill()"><i class="fas fa-file-invoice"></i> Generate Bill</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="paymentModal">
+        <div class="modal" style="max-width:450px;">
+            <div class="modal-header">
+                <h2>Record Payment</h2>
+                <button class="modal-close" onclick="document.getElementById('paymentModal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Invoice: <strong id="paymentInvoice"></strong></p>
+                <p>Due Amount: <strong id="paymentDue"></strong></p>
+                <div class="form-group"><label>Amount</label><input type="number" id="payAmount" step="0.01"></div>
+                <div class="form-group"><label>Payment Method</label>
+                    <select id="payMethod">
+                        <option value="cash">Cash</option>
+                        <option value="card">Card</option>
+                        <option value="upi">UPI</option>
+                        <option value="insurance">Insurance</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Transaction ID</label><input type="text" id="payTxnId"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="document.getElementById('paymentModal').classList.remove('active')">Cancel</button>
+                <button class="btn btn-success" onclick="recordPayment()"><i class="fas fa-check"></i> Pay</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        let currentBillId = null;
+
+        async function loadBills() {
+            try {
+                const data = await api.get('/billing/bills');
+                const tbody = document.getElementById('billsTable');
+                tbody.innerHTML = '';
+                data.bills.forEach(b => {
+                    tbody.innerHTML += `<tr>
+                        <td><strong>${escapeHtml(b.invoice_number || '-')}</strong></td>
+                        <td>${escapeHtml(b.patient_name || 'N/A')}</td>
+                        <td>${formatCurrency(b.total_amount)}</td>
+                        <td>${formatCurrency(b.paid_amount)}</td>
+                        <td>${formatCurrency(b.due_amount)}</td>
+                        <td>${getStatusBadge(b.status)}</td>
+                        <td>${formatDateTime(b.created_at)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-success" onclick="openPaymentModal(${b.id}, '${escapeHtml(b.invoice_number)}', ${b.due_amount})"><i class="fas fa-dollar-sign"></i></button>
+                            <button class="btn btn-sm btn-info" style="background:var(--accent);color:white;" onclick="downloadPdf(${b.id})"><i class="fas fa-file-pdf"></i></button>
+                        </td>
+                    </tr>`;
+                });
+                if (data.bills.length === 0) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No bills found</td></tr>';
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function openCreateBillModal() {
+            document.getElementById('billForm').reset();
+            document.getElementById('consFee').value = '0';
+            document.getElementById('labFee').value = '0';
+            document.getElementById('medFee').value = '0';
+            document.getElementById('otherFee').value = '0';
+            updateTotal();
+            document.getElementById('billModal').classList.add('active');
+            try {
+                const patients = await api.get('/patients?per_page=100');
+                const select = document.getElementById('patientSelect');
+                select.innerHTML = '<option value="">Select Patient</option>';
+                patients.patients.forEach(p => {
+                    select.innerHTML += `<option value="${p.id}">${escapeHtml(p.full_name)}</option>`;
+                });
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function closeModal() { document.getElementById('billModal').classList.remove('active'); }
+
+        function updateTotal() {
+            const total = [document.getElementById('consFee'), document.getElementById('labFee'),
+                          document.getElementById('medFee'), document.getElementById('otherFee')]
+                .reduce((sum, el) => sum + (parseFloat(el.value) || 0), 0);
+            document.getElementById('totalDisplay').textContent = total.toFixed(2);
+        }
+
+        document.querySelectorAll('#billForm input[type="number"]').forEach(el => {
+            el.addEventListener('input', updateTotal);
+        });
+
+        async function createBill() {
+            const data = {
+                patient_id: parseInt(document.getElementById('patientSelect').value),
+                consultation_fee: parseFloat(document.getElementById('consFee').value) || 0,
+                lab_fee: parseFloat(document.getElementById('labFee').value) || 0,
+                medicine_fee: parseFloat(document.getElementById('medFee').value) || 0,
+                other_fee: parseFloat(document.getElementById('otherFee').value) || 0
+            };
+            if (!data.patient_id) { showToast('Please select a patient', 'warning'); return; }
+            try {
+                await api.post('/billing/bills', data);
+                showToast('Bill created successfully', 'success');
+                closeModal();
+                loadBills();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openPaymentModal(id, invoice, due) {
+            currentBillId = id;
+            document.getElementById('paymentInvoice').textContent = invoice;
+            document.getElementById('paymentDue').textContent = formatCurrency(due);
+            document.getElementById('payAmount').value = due;
+            document.getElementById('paymentModal').classList.add('active');
+        }
+
+        async function recordPayment() {
+            try {
+                await api.post(`/billing/bills/${currentBillId}/pay`, {
+                    amount: parseFloat(document.getElementById('payAmount').value),
+                    payment_method: document.getElementById('payMethod').value,
+                    transaction_id: document.getElementById('payTxnId').value
+                });
+                showToast('Payment recorded', 'success');
+                document.getElementById('paymentModal').classList.remove('active');
+                loadBills();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function downloadPdf(id) {
+            window.open(`http://localhost:5000/api/billing/bills/${id}/pdf`, '_blank');
+        }
+
+        async function init() {
+            const user = await checkAuth();
+            if (user) {
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+                loadBills();
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

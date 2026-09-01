@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacist Dashboard - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2><i class="fas fa-hospital"></i> HMS</h2></div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active"><i class="fas fa-tachometer-alt"></i> Dashboard</button>
+                <button class="nav-item"><i class="fas fa-pills"></i> Medicines</button>
+                <button class="nav-item"><i class="fas fa-file-invoice"></i> Pharmacy Bills</button>
+                <hr style="border-color:rgba(255,255,255,0.1);margin:12px 20px;">
+                <button class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </nav>
+        </aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1>Pharmacist Dashboard</h1>
+                <div class="user-info">
+                    <button class="dark-mode-toggle" onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+                    <span id="userName"></span>
+                    <div class="user-avatar" id="userAvatar">P</div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-pills"></i></div><div class="stat-info"><h3 id="totalMeds">0</h3><p>Total Medicines</p></div></div>
+                <div class="stat-card"><div class="stat-icon red"><i class="fas fa-exclamation-triangle"></i></div><div class="stat-info"><h3 id="lowStock">0</h3><p>Low Stock</p></div></div>
+                <div class="stat-card"><div class="stat-icon green"><i class="fas fa-file-invoice"></i></div><div class="stat-info"><h3 id="todayBills">0</h3><p>Today's Bills</p></div></div>
+            </div>
+        </div>
+    </div>
+    <div id="toast-container" class="toast-container"></div>
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        async function loadDashboard() {
+            try {
+                const user = await checkAuth();
+                if (!user) return;
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+
+                const meds = await api.get('/pharmacy/medicines');
+                document.getElementById('totalMeds').textContent = meds.length;
+                document.getElementById('lowStock').textContent = meds.filter(m => m.low_stock).length;
+                // Will fetch bill count when API is ready
+                document.getElementById('todayBills').textContent = '0';
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+        loadDashboard();
+    </script>
+</body>
+</html>

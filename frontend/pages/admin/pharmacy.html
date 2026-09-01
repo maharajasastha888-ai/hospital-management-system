@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2><i class="fas fa-hospital"></i> HMS</h2></div>
+            <nav class="sidebar-nav">[nav items]</nav>
+        </aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1>Pharmacy Management</h1>
+                <div class="user-info">
+                    <button class="dark-mode-toggle" onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+                    <span id="userName"></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('medicines')">Medicines</button>
+                <button class="tab" onclick="switchTab('bills')">Pharmacy Bills</button>
+            </div>
+
+            <div id="medicinesTab">
+                <div class="search-bar">
+                    <input type="text" id="medSearch" placeholder="Search medicines..." oninput="loadMedicines()">
+                    <button class="btn btn-primary" onclick="openAddMedicineModal()"><i class="fas fa-plus"></i> Add Medicine</button>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Category</th>
+                                    <th>Manufacturer</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                    <th>Expiry</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="medicinesTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="billsTab" style="display:none;">
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Patient</th>
+                                    <th>Medicine</th>
+                                    <th>Qty</th>
+                                    <th>Total</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pharmacyBillsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="medicineModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Medicine</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="medicineForm">
+                    <input type="hidden" id="medicineId">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div class="form-group"><label>Name *</label><input type="text" id="medName" required></div>
+                        <div class="form-group"><label>Category</label><input type="text" id="medCategory"></div>
+                        <div class="form-group"><label>Manufacturer</label><input type="text" id="medManufacturer"></div>
+                        <div class="form-group"><label>Price *</label><input type="number" id="medPrice" step="0.01" required></div>
+                        <div class="form-group"><label>Stock Quantity</label><input type="number" id="medStock"></div>
+                        <div class="form-group"><label>Reorder Level</label><input type="number" id="medReorder"></div>
+                        <div class="form-group"><label>Expiry Date</label><input type="date" id="medExpiry"></div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveMedicine()"><i class="fas fa-save"></i> Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('medicinesTab').style.display = tab === 'medicines' ? 'block' : 'none';
+            document.getElementById('billsTab').style.display = tab === 'bills' ? 'block' : 'none';
+            if (tab === 'bills') loadPharmacyBills();
+        }
+
+        async function loadMedicines() {
+            try {
+                const q = document.getElementById('medSearch').value;
+                const meds = await api.get(`/pharmacy/medicines?q=${encodeURIComponent(q)}`);
+                const tbody = document.getElementById('medicinesTable');
+                tbody.innerHTML = '';
+                meds.forEach(m => {
+                    const stockClass = m.low_stock ? 'color:var(--danger);font-weight:700;' : '';
+                    tbody.innerHTML += `<tr>
+                        <td>${m.id}</td>
+                        <td><strong>${escapeHtml(m.name)}</strong></td>
+                        <td>${escapeHtml(m.category || '-')}</td>
+                        <td>${escapeHtml(m.manufacturer || '-')}</td>
+                        <td>${formatCurrency(m.price)}</td>
+                        <td style="${stockClass}">${m.stock_quantity} ${m.low_stock ? '<i class="fas fa-exclamation-triangle" title="Low Stock"></i>' : ''}</td>
+                        <td>${m.expiry_date ? formatDate(m.expiry_date) : '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editMedicine(${m.id})"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteMedicine(${m.id})"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+                });
+                if (meds.length === 0) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No medicines found</td></tr>';
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openAddMedicineModal() {
+            document.getElementById('medicineId').value = '';
+            document.getElementById('medicineForm').reset();
+            document.getElementById('modalTitle').textContent = 'Add Medicine';
+            document.getElementById('medicineModal').classList.add('active');
+        }
+
+        function closeModal() { document.getElementById('medicineModal').classList.remove('active'); }
+
+        async function saveMedicine() {
+            const data = {
+                name: document.getElementById('medName').value,
+                category: document.getElementById('medCategory').value,
+                manufacturer: document.getElementById('medManufacturer').value,
+                price: parseFloat(document.getElementById('medPrice').value),
+                stock_quantity: parseInt(document.getElementById('medStock').value) || 0,
+                reorder_level: parseInt(document.getElementById('medReorder').value) || 10,
+                expiry_date: document.getElementById('medExpiry').value
+            };
+            const id = document.getElementById('medicineId').value;
+            try {
+                if (id) { await api.put(`/pharmacy/medicines/${id}`, data); showToast('Medicine updated', 'success'); }
+                else { await api.post('/pharmacy/medicines', data); showToast('Medicine added', 'success'); }
+                closeModal(); loadMedicines();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function editMedicine(id) {
+            try {
+                const meds = await api.get('/pharmacy/medicines');
+                const m = meds.find(x => x.id === id);
+                if (!m) return;
+                document.getElementById('medicineId').value = m.id;
+                document.getElementById('medName').value = m.name;
+                document.getElementById('medCategory').value = m.category || '';
+                document.getElementById('medManufacturer').value = m.manufacturer || '';
+                document.getElementById('medPrice').value = m.price;
+                document.getElementById('medStock').value = m.stock_quantity;
+                document.getElementById('medReorder').value = m.reorder_level;
+                document.getElementById('medExpiry').value = m.expiry_date ? m.expiry_date.split('T')[0] : '';
+                document.getElementById('modalTitle').textContent = 'Edit Medicine';
+                document.getElementById('medicineModal').classList.add('active');
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function deleteMedicine(id) {
+            if (!confirm('Delete this medicine?')) return;
+            try { await api.delete(`/pharmacy/medicines/${id}`); showToast('Medicine deleted', 'success'); loadMedicines(); }
+            catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function loadPharmacyBills() {
+            try {
+                const data = await api.get('/pharmacy/bills');
+                const tbody = document.getElementById('pharmacyBillsTable');
+                tbody.innerHTML = '';
+                data.bills.forEach(b => {
+                    tbody.innerHTML += `<tr>
+                        <td>${b.id}</td>
+                        <td>${escapeHtml(b.patient_name || 'N/A')}</td>
+                        <td>${escapeHtml(b.medicine_name || 'N/A')}</td>
+                        <td>${b.quantity}</td>
+                        <td>${formatCurrency(b.total_price)}</td>
+                        <td>${formatDateTime(b.bill_date)}</td>
+                        <td>${getStatusBadge(b.status)}</td>
+                    </tr>`;
+                });
+                if (data.bills.length === 0) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">No bills found</td></tr>';
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function init() {
+            const user = await checkAuth();
+            if (user) {
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+                loadMedicines();
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

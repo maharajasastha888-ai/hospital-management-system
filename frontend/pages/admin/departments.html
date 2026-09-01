@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Departments - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">[nav items]</aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1>Departments</h1>
+                <div class="user-info">
+                    <button class="dark-mode-toggle" onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+                    <span id="userName"></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+            <div class="search-bar">
+                <button class="btn btn-primary" onclick="openAddModal()"><i class="fas fa-plus"></i> Add Department</button>
+            </div>
+            <div class="card">
+                <div class="table-container">
+                    <table>
+                        <thead><tr><th>ID</th><th>Name</th><th>Description</th><th>Actions</th></tr></thead>
+                        <tbody id="deptsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="deptModal">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Department</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="deptForm">
+                    <input type="hidden" id="deptId">
+                    <div class="form-group"><label>Name *</label><input type="text" id="deptName" required></div>
+                    <div class="form-group"><label>Description</label><textarea id="deptDesc" rows="3"></textarea></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveDept()"><i class="fas fa-save"></i> Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        async function loadDepts() {
+            try {
+                const depts = await api.get('/departments');
+                const tbody = document.getElementById('deptsTable');
+                tbody.innerHTML = '';
+                depts.forEach(d => {
+                    tbody.innerHTML += `<tr>
+                        <td>${d.id}</td>
+                        <td><strong>${escapeHtml(d.name)}</strong></td>
+                        <td>${escapeHtml(d.description || '-')}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editDept(${d.id})"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteDept(${d.id})"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+                });
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openAddModal() {
+            document.getElementById('deptId').value = '';
+            document.getElementById('deptForm').reset();
+            document.getElementById('modalTitle').textContent = 'Add Department';
+            document.getElementById('deptModal').classList.add('active');
+        }
+
+        function closeModal() { document.getElementById('deptModal').classList.remove('active'); }
+
+        async function saveDept() {
+            const data = { name: document.getElementById('deptName').value, description: document.getElementById('deptDesc').value };
+            const id = document.getElementById('deptId').value;
+            try {
+                if (id) { await api.put(`/departments/${id}`, data); showToast('Department updated', 'success'); }
+                else { await api.post('/departments', data); showToast('Department added', 'success'); }
+                closeModal(); loadDepts();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function editDept(id) {
+            try {
+                const d = await api.get(`/departments/${id}`);
+                document.getElementById('deptId').value = d.id;
+                document.getElementById('deptName').value = d.name;
+                document.getElementById('deptDesc').value = d.description || '';
+                document.getElementById('modalTitle').textContent = 'Edit Department';
+                document.getElementById('deptModal').classList.add('active');
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function deleteDept(id) {
+            if (!confirm('Delete this department?')) return;
+            try { await api.delete(`/departments/${id}`); showToast('Department deleted', 'success'); loadDepts(); }
+            catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function init() {
+            const user = await checkAuth();
+            if (user) {
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+                loadDepts();
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patients - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2><i class="fas fa-hospital"></i> HMS</h2></div>
+            <nav class="sidebar-nav">
+                <button class="nav-item" onclick="window.location.href='dashboard.html'"><i class="fas fa-tachometer-alt"></i> Dashboard</button>
+                <button class="nav-item active" onclick="window.location.href='patients.html'"><i class="fas fa-users"></i> Patients</button>
+                <button class="nav-item" onclick="window.location.href='doctors.html'"><i class="fas fa-user-md"></i> Doctors</button>
+                <button class="nav-item" onclick="window.location.href='appointments.html'"><i class="fas fa-calendar-check"></i> Appointments</button>
+                <button class="nav-item" onclick="window.location.href='departments.html'"><i class="fas fa-building"></i> Departments</button>
+                <button class="nav-item" onclick="window.location.href='pharmacy.html'"><i class="fas fa-pills"></i> Pharmacy</button>
+                <button class="nav-item" onclick="window.location.href='lab.html'"><i class="fas fa-flask"></i> Laboratory</button>
+                <button class="nav-item" onclick="window.location.href='billing.html'"><i class="fas fa-file-invoice"></i> Billing</button>
+                <button class="nav-item" onclick="window.location.href='reports.html'"><i class="fas fa-chart-bar"></i> Reports</button>
+                <hr style="border-color:rgba(255,255,255,0.1);margin:12px 20px;">
+                <button class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </nav>
+        </aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1>Patient Management</h1>
+                <div class="user-info">
+                    <button class="dark-mode-toggle" onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+                    <span id="userName">Admin</span>
+                    <div class="user-avatar" id="userAvatar">A</div>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" id="searchInput" placeholder="Search patients by name, phone, or email..." oninput="loadPatients()">
+                <button class="btn btn-primary" onclick="openAddModal()"><i class="fas fa-plus"></i> Add Patient</button>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Gender</th>
+                                <th>Blood Group</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patientsTable"></tbody>
+                    </table>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+                    <span id="paginationInfo"></span>
+                    <div style="display:flex;gap:8px;">
+                        <button class="btn btn-sm btn-ghost" id="prevPage" onclick="changePage(-1)">Previous</button>
+                        <button class="btn btn-sm btn-ghost" id="nextPage" onclick="changePage(1)">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal-overlay" id="patientModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Add Patient</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="patientForm">
+                    <input type="hidden" id="patientId">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div class="form-group">
+                            <label>First Name *</label>
+                            <input type="text" id="firstName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Last Name</label>
+                            <input type="text" id="lastName">
+                        </div>
+                        <div class="form-group">
+                            <label>Date of Birth</label>
+                            <input type="date" id="dob">
+                        </div>
+                        <div class="form-group">
+                            <label>Gender</label>
+                            <select id="gender">
+                                <option value="">Select</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Blood Group</label>
+                            <select id="bloodGroup">
+                                <option value="">Select</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone *</label>
+                            <input type="tel" id="phone" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="email">
+                        </div>
+                        <div class="form-group" style="grid-column:1/-1;">
+                            <label>Address</label>
+                            <textarea id="address" rows="2"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Emergency Contact Name</label>
+                            <input type="text" id="emergencyName">
+                        </div>
+                        <div class="form-group">
+                            <label>Emergency Contact</label>
+                            <input type="tel" id="emergencyPhone">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="savePatient()"><i class="fas fa-save"></i> Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        let currentPage = 1;
+        let editingId = null;
+
+        async function loadPatients() {
+            try {
+                const q = document.getElementById('searchInput').value;
+                const data = await api.get(`/patients?q=${encodeURIComponent(q)}&page=${currentPage}`);
+                const tbody = document.getElementById('patientsTable');
+                tbody.innerHTML = '';
+                data.patients.forEach(p => {
+                    tbody.innerHTML += `<tr>
+                        <td>${p.id}</td>
+                        <td><strong>${escapeHtml(p.full_name)}</strong></td>
+                        <td>${escapeHtml(p.phone || '-')}</td>
+                        <td>${escapeHtml(p.email || '-')}</td>
+                        <td>${escapeHtml(p.gender || '-')}</td>
+                        <td>${escapeHtml(p.blood_group || '-')}</td>
+                        <td>${formatDate(p.created_at)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editPatient(${p.id})"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-sm btn-danger" onclick="deletePatient(${p.id})"><i class="fas fa-trash"></i></button>
+                            <button class="btn btn-sm btn-info" style="background:var(--accent);color:white;" onclick="viewQR(${p.id})"><i class="fas fa-qrcode"></i></button>
+                        </td>
+                    </tr>`;
+                });
+                if (data.patients.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-light);">No patients found</td></tr>';
+                }
+                document.getElementById('paginationInfo').textContent = `Page ${data.page} of ${data.pages} (${data.total} total)`;
+                document.getElementById('prevPage').disabled = data.page <= 1;
+                document.getElementById('nextPage').disabled = data.page >= data.pages;
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        function changePage(delta) {
+            currentPage += delta;
+            if (currentPage < 1) currentPage = 1;
+            loadPatients();
+        }
+
+        function openAddModal() {
+            editingId = null;
+            document.getElementById('modalTitle').textContent = 'Add Patient';
+            document.getElementById('patientForm').reset();
+            document.getElementById('patientId').value = '';
+            document.getElementById('patientModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('patientModal').classList.remove('active');
+        }
+
+        async function savePatient() {
+            const data = {
+                first_name: document.getElementById('firstName').value,
+                last_name: document.getElementById('lastName').value,
+                dob: document.getElementById('dob').value,
+                gender: document.getElementById('gender').value,
+                blood_group: document.getElementById('bloodGroup').value,
+                phone: document.getElementById('phone').value,
+                email: document.getElementById('email').value,
+                address: document.getElementById('address').value,
+                emergency_contact_name: document.getElementById('emergencyName').value,
+                emergency_contact: document.getElementById('emergencyPhone').value
+            };
+
+            try {
+                if (editingId) {
+                    await api.put(`/patients/${editingId}`, data);
+                    showToast('Patient updated successfully', 'success');
+                } else {
+                    await api.post('/patients', data);
+                    showToast('Patient added successfully', 'success');
+                }
+                closeModal();
+                loadPatients();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function editPatient(id) {
+            try {
+                const p = await api.get(`/patients/${id}`);
+                editingId = id;
+                document.getElementById('modalTitle').textContent = 'Edit Patient';
+                document.getElementById('patientId').value = p.id;
+                document.getElementById('firstName').value = p.first_name;
+                document.getElementById('lastName').value = p.last_name;
+                document.getElementById('dob').value = p.dob ? p.dob.split('T')[0] : '';
+                document.getElementById('gender').value = p.gender || '';
+                document.getElementById('bloodGroup').value = p.blood_group || '';
+                document.getElementById('phone').value = p.phone;
+                document.getElementById('email').value = p.email || '';
+                document.getElementById('address').value = p.address || '';
+                document.getElementById('emergencyName').value = p.emergency_contact_name || '';
+                document.getElementById('emergencyPhone').value = p.emergency_contact || '';
+                document.getElementById('patientModal').classList.add('active');
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function deletePatient(id) {
+            if (!confirm('Are you sure you want to delete this patient?')) return;
+            try {
+                await api.delete(`/patients/${id}`);
+                showToast('Patient deleted', 'success');
+                loadPatients();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        function viewQR(id) {
+            window.open(`http://localhost:5000/api/patients/${id}/qr`, '_blank');
+        }
+
+        async function init() {
+            const user = await checkAuth();
+            if (user) {
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+                loadPatients();
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

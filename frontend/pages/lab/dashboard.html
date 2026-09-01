@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lab Technician Dashboard - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="sidebar-header"><h2><i class="fas fa-hospital"></i> HMS</h2></div>
+            <nav class="sidebar-nav">
+                <button class="nav-item active"><i class="fas fa-tachometer-alt"></i> Dashboard</button>
+                <button class="nav-item"><i class="fas fa-flask"></i> Lab Tests</button>
+                <button class="nav-item"><i class="fas fa-upload"></i> Upload Reports</button>
+                <hr style="border-color:rgba(255,255,255,0.1);margin:12px 20px;">
+                <button class="nav-item" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </nav>
+        </aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1>Lab Dashboard</h1>
+                <div class="user-info">
+                    <button class="dark-mode-toggle" onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+                    <span id="userName"></span>
+                    <div class="user-avatar" id="userAvatar">L</div>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-flask"></i></div><div class="stat-info"><h3 id="pendingTests">0</h3><p>Pending Tests</p></div></div>
+                <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-spinner"></i></div><div class="stat-info"><h3 id="inProgress">0</h3><p>In Progress</p></div></div>
+                <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="completedTests">0</h3><p>Completed Today</p></div></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h3>Recent Lab Tests</h3></div>
+                <div class="table-container">
+                    <table><thead><tr><th>Patient</th><th>Test</th><th>Type</th><th>Status</th></tr></thead>
+                    <tbody id="testsTable"></tbody></table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="toast-container" class="toast-container"></div>
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        async function loadDashboard() {
+            try {
+                const user = await checkAuth();
+                if (!user) return;
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+
+                const data = await api.get('/lab/tests');
+                const tests = data.tests;
+                document.getElementById('pendingTests').textContent = tests.filter(t => t.status === 'pending').length;
+                document.getElementById('inProgress').textContent = tests.filter(t => t.status === 'in_progress').length;
+                document.getElementById('completedTests').textContent = tests.filter(t => t.status === 'completed').length;
+
+                const tbody = document.getElementById('testsTable');
+                tbody.innerHTML = '';
+                tests.slice(0, 10).forEach(t => {
+                    tbody.innerHTML += `<tr><td>${escapeHtml(t.patient_name || 'N/A')}</td><td>${escapeHtml(t.test_name)}</td><td>${escapeHtml(t.test_type)}</td><td>${getStatusBadge(t.status)}</td></tr>`;
+                });
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+        loadDashboard();
+    </script>
+</body>
+</html>

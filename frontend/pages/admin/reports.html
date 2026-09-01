@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">[nav items]</aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1>Reports</h1>
+                <div class="user-info">
+                    <button class="dark-mode-toggle" onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+                    <span id="userName"></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('daily')">Daily Patients</button>
+                <button class="tab" onclick="switchTab('monthly')">Monthly Revenue</button>
+                <button class="tab" onclick="switchTab('doctors')">Doctor Report</button>
+            </div>
+
+            <div id="dailyTab">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Daily Patient Report</h3>
+                        <input type="date" id="dailyDate" onchange="loadDailyReport()" style="padding:8px 12px;border:2px solid var(--border);border-radius:8px;">
+                    </div>
+                    <div id="dailyReportContent"></div>
+                </div>
+            </div>
+
+            <div id="monthlyTab" style="display:none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Monthly Revenue Report</h3>
+                        <input type="number" id="reportYear" onchange="loadMonthlyReport()" style="padding:8px 12px;border:2px solid var(--border);border-radius:8px;width:120px;">
+                    </div>
+                    <div id="monthlyReportContent"></div>
+                </div>
+            </div>
+
+            <div id="doctorsTab" style="display:none;">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Doctor Performance Report</h3>
+                    </div>
+                    <div id="doctorReportContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('dailyTab').style.display = tab === 'daily' ? 'block' : 'none';
+            document.getElementById('monthlyTab').style.display = tab === 'monthly' ? 'block' : 'none';
+            document.getElementById('doctorsTab').style.display = tab === 'doctors' ? 'block' : 'none';
+            event.target.classList.add('active');
+            if (tab === 'daily') loadDailyReport();
+            if (tab === 'monthly') loadMonthlyReport();
+            if (tab === 'doctors') loadDoctorReport();
+        }
+
+        document.getElementById('dailyDate').valueAsDate = new Date();
+        document.getElementById('reportYear').value = new Date().getFullYear();
+
+        async function loadDailyReport() {
+            try {
+                const date = document.getElementById('dailyDate').value;
+                const data = await api.get(`/reports/daily-patients?date=${date}`);
+                document.getElementById('dailyReportContent').innerHTML = `
+                    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-top:16px;">
+                        <div class="stat-card"><div class="stat-info"><h3>${data.total_appointments}</h3><p>Total Appointments</p></div></div>
+                        <div class="stat-card"><div class="stat-info"><h3>${data.completed}</h3><p>Completed</p></div></div>
+                        <div class="stat-card"><div class="stat-info"><h3>${data.cancelled}</h3><p>Cancelled</p></div></div>
+                        <div class="stat-card"><div class="stat-info"><h3>${formatCurrency(data.revenue)}</h3><p>Revenue</p></div></div>
+                    </div>
+                    <div class="table-container" style="margin-top:16px;">
+                        <table><thead><tr><th>Patient</th><th>Doctor</th><th>Time</th><th>Status</th></tr></thead>
+                        <tbody>${data.appointments.map(a => `<tr><td>${escapeHtml(a.patient_name)}</td><td>Dr. ${escapeHtml(a.doctor_name)}</td><td>${escapeHtml(a.time_slot)}</td><td>${getStatusBadge(a.status)}</td></tr>`).join('')}</tbody>
+                    </div>
+                `;
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function loadMonthlyReport() {
+            try {
+                const year = document.getElementById('reportYear').value;
+                const data = await api.get(`/reports/monthly-revenue?year=${year}`);
+                let html = `<div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-top:16px;">
+                    <div class="stat-card"><div class="stat-info"><h3>${formatCurrency(data.total_yearly)}</h3><p>Total (${year})</p></div></div>
+                </div>
+                <div class="table-container" style="margin-top:16px;">
+                    <table><thead><tr><th>Month</th><th>Revenue</th><th>Bills</th></tr></thead><tbody>`;
+                data.monthly_data.forEach(m => {
+                    html += `<tr><td>${m.month_name}</td><td>${formatCurrency(m.revenue)}</td><td>${m.total_bills}</td></tr>`;
+                });
+                html += `</tbody></table></div>`;
+                document.getElementById('monthlyReportContent').innerHTML = html;
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function loadDoctorReport() {
+            try {
+                const data = await api.get('/reports/doctors');
+                let html = `<div class="table-container" style="margin-top:16px;">
+                    <table><thead><tr><th>Doctor</th><th>Specialization</th><th>Total</th><th>Completed</th><th>Cancelled</th><th>Rate</th></tr></thead><tbody>`;
+                data.forEach(d => {
+                    html += `<tr><td><strong>Dr. ${escapeHtml(d.doctor_name)}</strong></td>
+                        <td>${escapeHtml(d.specialization || '-')}</td>
+                        <td>${d.total_appointments}</td>
+                        <td>${d.completed}</td>
+                        <td>${d.cancelled}</td>
+                        <td>${d.completion_rate}%</td></tr>`;
+                });
+                html += `</tbody></table></div>`;
+                document.getElementById('doctorReportContent').innerHTML = html;
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function init() {
+            const user = await checkAuth();
+            if (user) {
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+                loadDailyReport();
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

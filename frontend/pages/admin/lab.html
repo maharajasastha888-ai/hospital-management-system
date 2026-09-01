@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laboratory - Hospital Management System</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">[nav items]</aside>
+        <div class="main-content">
+            <div class="top-bar">
+                <h1>Laboratory Management</h1>
+                <div class="user-info">
+                    <button class="dark-mode-toggle" onclick="toggleDarkMode()"><i class="fas fa-moon"></i></button>
+                    <span id="userName"></span>
+                    <div class="user-avatar" id="userAvatar"></div>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <button class="btn btn-primary" onclick="openOrderTestModal()"><i class="fas fa-flask"></i> Order New Test</button>
+            </div>
+
+            <div class="card">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Patient</th>
+                                <th>Test Name</th>
+                                <th>Type</th>
+                                <th>Ordered Date</th>
+                                <th>Status</th>
+                                <th>Result</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="labTestsTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="labTestModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Order Lab Test</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="labTestForm">
+                    <div class="form-group"><label>Patient</label><select id="patientSelect" required><option value="">Select Patient</option></select></div>
+                    <div class="form-group"><label>Test Type</label>
+                        <select id="testType" required>
+                            <option value="">Select Type</option>
+                            <option value="Blood">Blood Test</option>
+                            <option value="Urine">Urine Test</option>
+                            <option value="X-Ray">X-Ray</option>
+                            <option value="MRI">MRI</option>
+                            <option value="CT Scan">CT Scan</option>
+                            <option value="ECG">ECG</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Test Name</label><input type="text" id="testName" required></div>
+                    <div class="form-group"><label>Description</label><textarea id="testDesc" rows="2"></textarea></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="orderTest()"><i class="fas fa-flask"></i> Order</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="resultModal">
+        <div class="modal" style="max-width:500px;">
+            <div class="modal-header">
+                <h2>Update Result</h2>
+                <button class="modal-close" onclick="document.getElementById('resultModal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label>Result</label><textarea id="testResult" rows="4" style="width:100%;"></textarea></div>
+                <div class="form-group"><label>Status</label>
+                    <select id="resultStatus">
+                        <option value="completed">Completed</option>
+                        <option value="in_progress">In Progress</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="document.getElementById('resultModal').classList.remove('active')">Cancel</button>
+                <button class="btn btn-success" onclick="saveResult()"><i class="fas fa-check"></i> Save</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+    <script src="../../js/api.js"></script>
+    <script src="../../js/auth.js"></script>
+    <script src="../../js/main.js"></script>
+    <script>
+        let currentTestId = null;
+
+        async function loadLabTests() {
+            try {
+                const data = await api.get('/lab/tests');
+                const tbody = document.getElementById('labTestsTable');
+                tbody.innerHTML = '';
+                data.tests.forEach(t => {
+                    tbody.innerHTML += `<tr>
+                        <td>${t.id}</td>
+                        <td>${escapeHtml(t.patient_name || 'N/A')}</td>
+                        <td>${escapeHtml(t.test_name)}</td>
+                        <td>${escapeHtml(t.test_type)}</td>
+                        <td>${formatDate(t.ordered_date)}</td>
+                        <td>${getStatusBadge(t.status)}</td>
+                        <td>${escapeHtml(t.result ? t.result.substring(0, 50) + '...' : '-')}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="openResultModal(${t.id})"><i class="fas fa-edit"></i> Result</button>
+                            ${t.report_file ? `<button class="btn btn-sm btn-info" style="background:var(--accent);color:white;" onclick="downloadReport(${t.id})"><i class="fas fa-download"></i></button>` : ''}
+                        </td>
+                    </tr>`;
+                });
+                if (data.tests.length === 0) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No lab tests found</td></tr>';
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        async function openOrderTestModal() {
+            document.getElementById('labTestForm').reset();
+            document.getElementById('labTestModal').classList.add('active');
+            try {
+                const patients = await api.get('/patients?per_page=100');
+                const select = document.getElementById('patientSelect');
+                select.innerHTML = '<option value="">Select Patient</option>';
+                patients.patients.forEach(p => {
+                    select.innerHTML += `<option value="${p.id}">${escapeHtml(p.full_name)}</option>`;
+                });
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function closeModal() { document.getElementById('labTestModal').classList.remove('active'); }
+
+        async function orderTest() {
+            const data = {
+                patient_id: parseInt(document.getElementById('patientSelect').value),
+                test_type: document.getElementById('testType').value,
+                test_name: document.getElementById('testName').value,
+                description: document.getElementById('testDesc').value
+            };
+            if (!data.patient_id || !data.test_type || !data.test_name) {
+                showToast('Please fill required fields', 'warning'); return;
+            }
+            try {
+                await api.post('/lab/tests', data);
+                showToast('Lab test ordered', 'success');
+                closeModal();
+                loadLabTests();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openResultModal(id) {
+            currentTestId = id;
+            document.getElementById('testResult').value = '';
+            document.getElementById('resultStatus').value = 'completed';
+            document.getElementById('resultModal').classList.add('active');
+        }
+
+        async function saveResult() {
+            try {
+                await api.put(`/lab/tests/${currentTestId}/result`, {
+                    result: document.getElementById('testResult').value,
+                    status: document.getElementById('resultStatus').value
+                });
+                showToast('Result saved', 'success');
+                document.getElementById('resultModal').classList.remove('active');
+                loadLabTests();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function downloadReport(id) {
+            window.open(`http://localhost:5000/api/lab/tests/${id}/report/download`, '_blank');
+        }
+
+        async function init() {
+            const user = await checkAuth();
+            if (user) {
+                document.getElementById('userName').textContent = user.username;
+                document.getElementById('userAvatar').textContent = user.username.charAt(0).toUpperCase();
+                loadLabTests();
+            }
+        }
+        init();
+    </script>
+</body>
+</html>

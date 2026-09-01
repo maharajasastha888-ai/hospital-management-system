@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Hospital Management System</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dark-mode.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+    <div class="login-page">
+        <div class="login-container">
+            <div style="text-align:center;font-size:48px;color:#3498db;margin-bottom:8px;">
+                <i class="fas fa-hospital"></i>
+            </div>
+            <h1>Hospital Management System</h1>
+            <p>Sign in to your account</p>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="Enter your username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <label style="font-size:13px;">
+                        <input type="checkbox" id="remember"> Remember me
+                    </label>
+                    <a href="#" style="font-size:13px;">Forgot Password?</a>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i> Sign In
+                </button>
+            </form>
+
+            <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text-light);">
+                <p>Demo Accounts:</p>
+                <p>admin / admin123 | doctor / password123 | reception / password123</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="../js/api.js"></script>
+    <script src="../js/auth.js"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
+
+            try {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const data = await login(username, password);
+                showToast('Login successful! Welcome ' + data.user.role, 'success');
+                setTimeout(() => redirectToDashboard(), 500);
+            } catch (err) {
+                showToast(err.message || 'Login failed', 'error');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+            }
+        });
+
+        // Check if already logged in
+        if (isLoggedIn()) {
+            redirectToDashboard();
+        }
+    </script>
+</body>
+</html>
